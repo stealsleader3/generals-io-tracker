@@ -1,0 +1,14 @@
+{
+  "name": "generals-io-tracker",
+  "version": "1.0.0",
+  "description": "Real-time tracker for generals.io 1v1 leaderboard - shows top 50 players and their last game time",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io-client": "^4.8.3"
+  }
+}
