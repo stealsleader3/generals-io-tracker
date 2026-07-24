@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Generals.io 1v1 排行榜追踪器</title>
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-tertiary: #21262d;
+      --border-color: #30363d;
+      --text-primary: #e6edf3;
+      --text-secondary: #8b949e;
+      --text-muted: #6e7681;
+      --accent-gold: #d29922;
+      --accent-red: #f85149;
+      --accent-green: #3fb950;
+      --accent-blue: #58a6ff;
+      --accent-purple: #bc8cff;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", Helvetica, Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+      padding: 20px 24px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+    }
+
+    .header-left h1 {
+      font-size: 24px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .header-left h1 .icon {
+      font-size: 28px;
+    }
+
+    .header-left p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .header-right {
+      text-align: right;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .status-badge.online {
+      background: rgba(63, 185, 80, 0.12);
+      color: var(--accent-green);
+      border: 1px solid rgba(63, 185, 80, 0.3);
+    }
+
+    .status-badge.loading {
+      background: rgba(88, 166, 255, 0.12);
+      color: var(--accent-blue);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+    }
+
+    .status-badge.error {
+      background: rgba(248, 81, 73, 0.12);
+      color: var(--accent-red);
+      border: 1px solid rgba(248, 81, 73, 0.3);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status-badge.online .status-dot { background: var(--accent-green); }
+    .status-badge.loading .status-dot { background: var(--accent-blue); }
+    .status-badge.error .status-dot { background: var(--accent-red); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .update-time {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 6px;
+    }
+
+    .countdown {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      flex: 1;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px 20px;
+      text-align: center;
+    }
+
+    .stat-card .label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .stat-card .value {
+      font-size: 24px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .stat-card.active .value { color: var(--accent-green); }
+    .stat-card.recent .value { color: var(--accent-blue); }
+    .stat-card.inactive .value { color: var(--accent-gold); }
+    .stat-card.total .value { color: var(--accent-purple); }
+
+    /* Table */
+    .table-wrapper {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead {
+      background: var(--bg-tertiary);
+    }
+
+    th {
+      padding: 14px 16px;
+      text-align: left;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th:hover {
+      color: var(--text-primary);
+    }
+
+    th .sort-indicator {
+      opacity: 0.4;
+      font-size: 10px;
+      margin-left: 4px;
+    }
+
+    th.sorted .sort-indicator {
+      opacity: 1;
+      color: var(--accent-blue);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(48, 54, 61, 0.5);
+      font-size: 14px;
+    }
+
+    tbody tr {
+      transition: background 0.15s;
+    }
+
+    tbody tr:hover {
+      background: rgba(88, 166, 255, 0.04);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Rank badge */
+    .rank {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .rank-1 { background: linear-gradient(135deg, #ffd700, #ffa500); color: #000; }
+    .rank-2 { background: linear-gradient(135deg, #c0c0c0, #a0a0a0); color: #000; }
+    .rank-3 { background: linear-gradient(135deg, #cd7f32, #b8860b); color: #fff; }
+    .rank-other { background: var(--bg-tertiary); color: var(--text-secondary); }
+
+    /* Username */
+    .username {
+      font-weight: 600;
+      color: var(--accent-blue);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .username:hover {
+      text-decoration: underline;
+    }
+
+    .supporter-icon {
+      color: var(--accent-gold);
+      font-size: 14px;
+    }
+
+    /* Stars */
+    .stars {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-weight: 600;
+    }
+
+    .stars .star-icon {
+      color: var(--accent-gold);
+    }
+
+    /* Time ago */
+    .time-ago {
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .time-ago .time-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .time-ago.active .time-dot { background: var(--accent-green); }
+    .time-ago.active { color: var(--accent-green); }
+
+    .time-ago.recent .time-dot { background: var(--accent-blue); }
+    .time-ago.recent { color: var(--accent-blue); }
+
+    .time-ago.moderate .time-dot { background: var(--accent-gold); }
+    .time-ago.moderate { color: var(--accent-gold); }
+
+    .time-ago.inactive .time-dot { background: var(--accent-red); }
+    .time-ago.inactive { color: var(--accent-red); }
+
+    .time-ago.no-data .time-dot { background: var(--text-muted); }
+    .time-ago.no-data { color: var(--text-muted); }
+
+    /* Replay link */
+    .replay-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 13px;
+      transition: color 0.15s;
+    }
+
+    .replay-link:hover {
+      color: var(--accent-blue);
+    }
+
+    /* Loading skeleton */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-secondary) 25%, var(--bg-tertiary) 50%, var(--bg-secondary) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      height: 16px;
+      width: 80px;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Loading overlay */
+    .loading-overlay {
+      text-align: center;
+      padding: 60px 20px;
+    }
+
+    .loading-overlay .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--bg-tertiary);
+      border-top-color: var(--accent-blue);
+      border-radius: 50%;
+      margin: 0 auto 16px;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-overlay p {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .header {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+      }
+
+      .header-right {
+        text-align: center;
+      }
+
+      .stats-bar {
+        flex-wrap: wrap;
+      }
+
+      .stat-card {
+        min-width: calc(50% - 8px);
+      }
+
+      th, td {
+        padding: 10px 8px;
+        font-size: 12px;
+      }
+
+      th:nth-child(5), td:nth-child(5),
+      th:nth-child(6), td:nth-child(6) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <h1><span class="icon">⚔️</span> Generals.io 1v1 排行榜追踪</h1>
+        <p>实时追踪 1v1 榜单前 50 玩家的最近对局时间</p>
+      </div>
+      <div class="header-right">
+        <div id="statusBadge" class="status-badge loading">
+          <span class="status-dot"></span>
+          <span id="statusText">加载中...</span>
+        </div>
+        <div class="update-time" id="updateTime">等待数据...</div>
+        <div class="countdown" id="countdown"></div>
+      </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <div class="stat-card total">
+        <div class="label">总玩家数</div>
+        <div class="value" id="statTotal">--</div>
+      </div>
+      <div class="stat-card active">
+        <div class="label">在线对战中</div>
+        <div class="value" id="statActive">--</div>
+      </div>
+      <div class="stat-card recent">
+        <div class="label">10分钟内</div>
+        <div class="value" id="statRecent">--</div>
+      </div>
+      <div class="stat-card inactive">
+        <div class="label">超过1小时</div>
+        <div class="value" id="statInactive">--</div>
+      </div>
+    </div>
+
+    <!-- Table -->
+    <div class="table-wrapper">
+      <table id="leaderboardTable">
+        <thead>
+          <tr>
+            <th data-sort="rank" style="width: 60px;">排名 <span class="sort-indicator">▼</span></th>
+            <th data-sort="username">玩家 <span class="sort-indicator"></span></th>
+            <th data-sort="stars" style="width: 100px;">星星 <span class="sort-indicator"></span></th>
+            <th data-sort="timeAgo" style="width: 180px;">最近对局 <span class="sort-indicator"></span></th>
+            <th style="width: 100px;">类型</th>
+            <th style="width: 80px;">回放</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody">
+          <tr>
+            <td colspan="6">
+              <div class="loading-overlay">
+                <div class="spinner"></div>
+                <p>正在连接 generals.io 获取数据...</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // ========== State ==========
+    let leaderboardData = null;
+    let sortKey = "rank";
+    let sortDir = "asc";
+    let nextRefreshAt = 0;
+
+    // ========== Time Formatting ==========
+    function formatTimeAgo(ms) {
+      if (!ms || ms < 0) return "未知";
+      const seconds = Math.floor(ms / 1000);
+      const minutes = Math.floor(seconds / 60);
+      const hours = Math.floor(minutes / 60);
+      const days = Math.floor(hours / 24);
+
+      if (seconds < 60) return `${seconds} 秒前`;
+      if (minutes < 60) return `${minutes} 分钟前`;
+      if (hours < 24) return `${hours} 小时 ${minutes % 60} 分钟前`;
+      if (days < 30) return `${days} 天前`;
+      return `${Math.floor(days / 30)} 个月前`;
+    }
+
+    function getTimeAgoClass(ms) {
+      if (!ms || ms < 0) return "no-data";
+      const minutes = ms / 1000 / 60;
+      if (minutes < 5) return "active";      // < 5 min: green
+      if (minutes < 30) return "recent";      // < 30 min: blue
+      if (minutes < 60) return "moderate";    // < 1 hour: gold
+      return "inactive";                       // > 1 hour: red
+    }
+
+    function formatDateTime(timestamp) {
+      if (!timestamp) return "未知";
+      const d = new Date(timestamp);
+      return d.toLocaleString("zh-CN", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    // ========== Rendering ==========
+    function renderTable() {
+      const tbody = document.getElementById("tableBody");
+
+      if (!leaderboardData || !leaderboardData.players || leaderboardData.players.length === 0) {
+        tbody.innerHTML = `
+          <tr><td colspan="6">
+            <div class="loading-overlay">
+              <div class="spinner"></div>
+              <p>${leaderboardData && leaderboardData.error ? "加载失败: " + leaderboardData.error : "暂无数据，等待加载..."}</p>
+            </div>
+          </td></tr>`;
+        return;
+      }
+
+      let players = [...leaderboardData.players];
+
+      // Sort
+      players.sort((a, b) => {
+        let valA, valB;
+        switch (sortKey) {
+        case "rank":
+          valA = a.rank; valB = b.rank; break;
+        case "username":
+          valA = a.username.toLowerCase(); valB = b.username.toLowerCase(); break;
+        case "stars":
+          valA = a.stars; valB = b.stars; break;
+        case "timeAgo":
+          valA = a.lastGame ? a.lastGame.timeAgoMs : Infinity;
+          valB = b.lastGame ? b.lastGame.timeAgoMs : Infinity;
+          break;
+        default:
+          return 0;
+        }
+        if (valA < valB) return sortDir === "asc" ? -1 : 1;
+        if (valA > valB) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      });
+
+      tbody.innerHTML = players.map(p => {
+        const rankClass = p.rank === 1 ? "rank-1" : p.rank === 2 ? "rank-2" : p.rank === 3 ? "rank-3" : "rank-other";
+        const timeAgoMs = p.lastGame ? p.lastGame.timeAgoMs : null;
+        const timeAgoText = p.lastGame ? formatTimeAgo(timeAgoMs) : "无对局记录";
+        const timeClass = getTimeAgoClass(timeAgoMs);
+        const supporterIcon = p.isSupporter ? '<span class="supporter-icon" title="Supporter">★</span>' : "";
+
+        return `
+          <tr>
+            <td><span class="rank ${rankClass}">${p.rank}</span></td>
+            <td>
+              <a class="username" href="https://generals.io/profile/${encodeURIComponent(p.username)}" target="_blank">
+                ${p.username}${supporterIcon}
+              </a>
+            </td>
+            <td>
+              <span class="stars"><span class="star-icon">★</span>${p.stars.toFixed(1)}</span>
+            </td>
+            <td>
+              <span class="time-ago ${timeClass}">
+                <span class="time-dot"></span>
+                ${timeAgoText}
+              </span>
+            </td>
+            <td style="color: var(--text-secondary); font-size: 13px;">
+              ${p.lastGame ? p.lastGame.type : "--"}
+            </td>
+            <td>
+              ${p.replayUrl ? `<a class="replay-link" href="${p.replayUrl}" target="_blank">查看回放 →</a>` : "--"}
+            </td>
+          </tr>`;
+      }).join("");
+    }
+
+    function renderStats() {
+      if (!leaderboardData || !leaderboardData.players) {
+        return;
+      }
+
+      const players = leaderboardData.players;
+      const now = Date.now();
+
+      let active = 0;    // < 5 min
+      let recent = 0;    // < 10 min
+      let inactive = 0;  // > 1 hour
+
+      players.forEach(p => {
+        if (!p.lastGame) return;
+        const minutes = (now - p.lastGame.started) / 1000 / 60;
+        if (minutes < 5) active++;
+        if (minutes < 10) recent++;
+        if (minutes > 60) inactive++;
+      });
+
+      document.getElementById("statTotal").textContent = players.length;
+      document.getElementById("statActive").textContent = active;
+      document.getElementById("statRecent").textContent = recent;
+      document.getElementById("statInactive").textContent = inactive;
+    }
+
+    function renderStatus() {
+      const badge = document.getElementById("statusBadge");
+      const text = document.getElementById("statusText");
+      const timeEl = document.getElementById("updateTime");
+
+      if (!leaderboardData) {
+        badge.className = "status-badge loading";
+        text.textContent = "加载中...";
+        timeEl.textContent = "等待数据...";
+        return;
+      }
+
+      if (leaderboardData.error) {
+        badge.className = "status-badge error";
+        text.textContent = "加载失败";
+      } else if (leaderboardData.players.length > 0) {
+        badge.className = "status-badge online";
+        text.textContent = "数据正常";
+      } else {
+        badge.className = "status-badge loading";
+        text.textContent = "加载中...";
+      }
+
+      if (leaderboardData.updatedAt) {
+        timeEl.textContent = "更新于: " + formatDateTime(leaderboardData.updatedAt);
+      }
+    }
+
+    function renderAll() {
+      renderTable();
+      renderStats();
+      renderStatus();
+    }
+
+    // ========== Data Fetching ==========
+    async function fetchData() {
+      try {
+        const response = await fetch("/api/leaderboard");
+        const data = await response.json();
+
+        // Update timeAgoMs for all players based on current time
+        if (data.players) {
+          data.players.forEach(p => {
+            if (p.lastGame && p.lastGame.started) {
+              p.lastGame.timeAgoMs = Date.now() - p.lastGame.started;
+            }
+          });
+        }
+
+        const wasFirstLoad = !leaderboardData;
+        leaderboardData = data;
+        renderAll();
+
+        if (wasFirstLoad) {
+          startCountdown();
+        }
+      } catch (err) {
+        console.error("Fetch error:", err);
+      }
+    }
+
+    // ========== Countdown ==========
+    function startCountdown() {
+      nextRefreshAt = Date.now() + 120 * 1000; // 2 minutes
+
+      setInterval(() => {
+        const remaining = Math.max(0, nextRefreshAt - Date.now());
+        const seconds = Math.ceil(remaining / 1000);
+
+        if (remaining > 0) {
+          document.getElementById("countdown").textContent = `下次刷新: ${seconds}s`;
+        } else {
+          document.getElementById("countdown").textContent = "正在刷新...";
+        }
+      }, 1000);
+
+      // Re-render timeAgo every 10 seconds without re-fetching
+      setInterval(() => {
+        if (leaderboardData && leaderboardData.players) {
+          leaderboardData.players.forEach(p => {
+            if (p.lastGame && p.lastGame.started) {
+              p.lastGame.timeAgoMs = Date.now() - p.lastGame.started;
+            }
+          });
+          renderTable();
+          renderStats();
+        }
+      }, 10000);
+    }
+
+    // ========== Sorting ==========
+    document.querySelectorAll("th[data-sort]").forEach(th => {
+      th.addEventListener("click", () => {
+        const key = th.dataset.sort;
+        if (sortKey === key) {
+          sortDir = sortDir === "asc" ? "desc" : "asc";
+        } else {
+          sortKey = key;
+          sortDir = key === "rank" ? "asc" : "desc";
+        }
+
+        // Update sort indicators
+        document.querySelectorAll("th[data-sort]").forEach(t => {
+          t.classList.remove("sorted");
+          t.querySelector(".sort-indicator").textContent = "";
+        });
+        th.classList.add("sorted");
+        th.querySelector(".sort-indicator").textContent = sortDir === "asc" ? "▲" : "▼";
+
+        renderTable();
+      });
+    });
+
+    // ========== Auto-refresh ==========
+    setInterval(() => {
+      fetchData();
+      nextRefreshAt = Date.now() + 120 * 1000;
+    }, 60 * 1000); // Poll server every 60s; server refreshes every 2 min
+
+    // ========== Initial Load ==========
+    fetchData();
+
+    // Also fetch immediately after 3 seconds if first fetch returned empty
+    setTimeout(() => {
+      if (!leaderboardData || !leaderboardData.players || leaderboardData.players.length === 0) {
+        fetchData();
+      }
+    }, 3000);
+  </script>
+</body>
+</html>
